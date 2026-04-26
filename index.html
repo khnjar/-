@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>ICM Core Engine v1 – عقل القرار الذكي</title>
+    <!-- Tailwind + Chart.js + Font Awesome -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+        }
+        .glass-card {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(59,130,246,0.3);
+            border-radius: 1.5rem;
+        }
+        .agent-card {
+            transition: all 0.2s ease;
+        }
+        .agent-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(59,130,246,0.4);
+            border-color: #3b82f6;
+        }
+        .decision-badge {
+            animation: pulse-glow 2s infinite;
+        }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+            100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+        }
+        .history-item {
+            border-left: 2px solid #3b82f6;
+            transition: 0.1s;
+        }
+        .slider {
+            -webkit-appearance: none;
+            height: 6px;
+            background: #334155;
+            border-radius: 5px;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 0 5px #3b82f6;
+        }
+    </style>
+</head>
+<body class="text-white p-4 md:p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                🧠 ICM Core Engine v1
+            </h1>
+            <p class="text-gray-300 mt-2 text-lg">نظام قرار ذكي متعدد الوكلاء – يعالج البيانات، يناقش، ويقرر</p>
+        </div>
+
+        <!-- منطقة الإدخال والمحاكاة -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- بطاقة المدخلات (يسار) -->
+            <div class="glass-card p-5 space-y-5">
+                <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-sliders-h text-blue-400"></i> البيانات المدخلة</h2>
+                <div>
+                    <label class="block text-sm font-medium mb-1">ضغط الدم الانقباضي (mmHg)</label>
+                    <input type="range" id="pressureSlider" min="80" max="200" value="150" class="slider w-full">
+                    <div class="flex justify-between text-xs mt-1"><span>80</span><span>140 (طبيعي)</span><span>200</span></div>
+                    <span id="pressureVal" class="text-blue-300 font-mono text-lg">150</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">درجة حرارة الجو (°C)</label>
+                    <input type="range" id="tempSlider" min="20" max="45" value="38" class="slider w-full">
+                    <div class="flex justify-between text-xs"><span>20</span><span>35</span><span>45</span></div>
+                    <span id="tempVal" class="text-blue-300 font-mono text-lg">38</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">النشاط البدني (مؤشر 0-100)</label>
+                    <input type="range" id="activitySlider" min="0" max="100" value="80" class="slider w-full">
+                    <span id="activityVal" class="text-blue-300 font-mono text-lg">80</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">مستوى الإجهاد (0-10)</label>
+                    <input type="range" id="stressSlider" min="0" max="10" value="5" step="1" class="slider w-full">
+                    <span id="stressVal" class="text-blue-300 font-mono text-lg">5</span>
+                </div>
+                <button id="runSimulationBtn" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2">
+                    <i class="fas fa-play"></i> تشغيل المحاكاة (ICM Core)
+                </button>
+            </div>
+
+            <!-- نتائج الوكلاء + القرار (وسط) -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- تبويب الوكلاء الأربعة -->
+                <div class="glass-card p-5">
+                    <h2 class="text-xl font-bold flex items-center gap-2 mb-3"><i class="fas fa-users text-blue-400"></i> آراء الوكلاء (Multi‑Agent)</h2>
+                    <div id="agentsReports" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- ستظهر بطاقات الوكلاء ديناميكياً -->
+                        <div class="text-gray-400 text-center col-span-2">اضغط "تشغيل المحاكاة" لبدء التحليل</div>
+                    </div>
+                </div>
+
+                <!-- القرار النهائي والتفسير -->
+                <div class="glass-card p-5">
+                    <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-gavel text-blue-400"></i> القرار النهائي (Fusion Engine)</h2>
+                    <div id="finalDecisionArea" class="mt-3 text-center text-gray-400">لم يتم اتخاذ قرار بعد</div>
+                    <div id="explanationArea" class="mt-4 text-sm text-gray-300 border-t border-blue-500/30 pt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ذاكرة القرارات السابقة ورسم بياني -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+            <div class="glass-card p-5">
+                <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-history text-blue-400"></i> ذاكرة الحكمة (آخر 5 قرارات)</h2>
+                <div id="historyList" class="max-h-48 overflow-y-auto space-y-2 mt-3">
+                    <div class="text-gray-500 text-sm">لا توجد قرارات سابقة. قم بتشغيل المحاكاة.</div>
+                </div>
+                <button id="clearHistoryBtn" class="mt-3 text-xs text-gray-400 hover:text-white underline">مسح الذاكرة</button>
+            </div>
+            <div class="glass-card p-5">
+                <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-chart-line text-blue-400"></i> تدرج المخاطر (آخر 7 محاولات)</h2>
+                <canvas id="riskChart" width="400" height="200" class="w-full h-auto bg-black/30 rounded-lg p-2"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ---------- نموذج الوكلاء ----------
+        class Agent {
+            constructor(name, icon) {
+                this.name = name;
+                this.icon = icon;
+            }
+            evaluate(data) { return { score: 0, advice: [], decision: "" }; }
+        }
+        class HealthAgent extends Agent {
+            constructor() { super("وكيل الصحة", "❤️"); }
+            evaluate(data) {
+                let score = 0;
+                let advice = [];
+                if (data.pressure > 140) { score += 0.35; advice.push("ضغط مرتفع (>140)"); }
+                else if (data.pressure < 90) { score += 0.2; advice.push("ضغط منخفض"); }
+                if (data.stress > 7) { score += 0.25; advice.push("إجهاد مرتفع"); }
+                else if (data.stress > 4) score += 0.1;
+                if (data.activity > 70) { score += 0.2; advice.push("نشاط بدني عالٍ"); }
+                let decision = (score > 0.6) ? "⬇️ تقليل نشاط ومراقبة الضغط" : "✅ متابعة طبيعية";
+                if (data.pressure > 160) decision = "⚠️ استشارة طبية عاجلة";
+                return { agent: this.name, icon: this.icon, score: Math.min(1.0, score), advice, decision };
+            }
+        }
+        class EnvironmentAgent extends Agent {
+            constructor() { super("وكيل البيئة", "🌡️"); }
+            evaluate(data) {
+                let score = 0;
+                let adv = [];
+                if (data.temp > 38) { score += 0.6; adv.push("حر شديد - خطورة"); }
+                else if (data.temp > 35) { score += 0.3; adv.push("حرارة مرتفعة"); }
+                if (data.temp > 40) score = 0.9;
+                let decision = (score > 0.5) ? "تجنب التعرض المباشر للحرارة" : "بيئة طبيعية مقبولة";
+                return { agent: this.name, icon: this.icon, score: Math.min(1.0, score), advice: adv, decision };
+            }
+        }
+        class EconomyAgent extends Agent {
+            constructor() { super("وكيل الاقتصاد", "💰"); }
+            evaluate(data) {
+                // مبسط: ارتفاع النشاط قد يعني تكاليف صحية لاحقة
+                let score = (data.activity / 100) * 0.4 + (data.stress / 10) * 0.3;
+                let advice = (score > 0.5) ? ["ارتفاع محتمل في التكاليف الصحية"] : ["تكاليف مستقرة"];
+                let decision = (score > 0.6) ? "مراجعة الجدوى الاقتصادية للأنشطة" : "نشاط اقتصادي مقبول";
+                return { agent: this.name, icon: this.icon, score: Math.min(1.0, score), advice, decision };
+            }
+        }
+        class RiskAgent extends Agent {
+            constructor() { super("وكيل المخاطر", "⚠️"); }
+            evaluate(data) {
+                let raw = (data.pressure/200) * 0.4 + (data.temp/50) * 0.2 + (data.activity/100)*0.2 + (data.stress/10)*0.2;
+                let score = Math.min(1.0, raw);
+                let decision = (score > 0.7) ? "مخاطرة عالية – تدخل مطلوب" : (score > 0.4 ? "مخاطرة متوسطة – مراقبة" : "مخاطرة منخفضة");
+                let advice = [`الخطر الكلي: ${(score*100).toFixed(0)}%`];
+                return { agent: this.name, icon: this.icon, score: score, advice, decision };
+            }
+        }
+
+        // ---------- محرك ICM Core ----------
+        class ICMCore {
+            constructor(agents) { this.agents = agents; }
+            run(data) {
+                const reports = this.agents.map(agent => agent.evaluate(data));
+                const totalScore = reports.reduce((s, r) => s + r.score, 0) / reports.length;
+                const best = reports.reduce((a, b) => (a.score > b.score ? a : b), reports[0]);
+                const explanation = reports.map(r => `${r.icon} ${r.agent}: ${r.advice.join(", ") || "لا ملاحظات"}`);
+                let finalDecision = "";
+                if (totalScore > 0.65) finalDecision = "🚨 تدخل فوري مطلوب (اجتماعي + صحي)";
+                else if (totalScore > 0.4) finalDecision = "⚠️ حالة تستدعي المراقبة والوعي";
+                else finalDecision = "✅ حالة مستقرة – متابعة روتينية";
+                // تعديل القرار بناءً على أفضل وكيل إذا كان خطيراً
+                if (best.score > 0.75) finalDecision = `🔴 ${best.decision} (أولوية قصوى)`;
+                return { reports, totalScore: parseFloat(totalScore.toFixed(2)), bestAgent: best.agent, finalDecision, explanation };
+            }
+        }
+
+        // ----- دوال عرض وتفاعل -----
+        let decisionHistory = [];      // لتخزين القرارات السابقة
+        let riskScores = [];           // للرسم البياني
+        let riskChart;
+
+        function updateUI(output, inputData) {
+            // عرض تقارير الوكلاء
+            const container = document.getElementById('agentsReports');
+            container.innerHTML = output.reports.map(r => `
+                <div class="agent-card glass-card p-3 border border-white/10">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-2xl">${r.icon}</span>
+                        <span class="font-bold">${r.agent}</span>
+                        <span class="mr-auto text-sm px-2 py-0.5 bg-blue-900/50 rounded-full">درجة: ${(r.score*100).toFixed(0)}%</span>
+                    </div>
+                    <div class="text-sm text-gray-300">📌 القرار: ${r.decision}</div>
+                    <div class="text-xs text-gray-400 mt-1">📋 ملاحظات: ${r.advice.join(", ") || "لا توجد"}</div>
+                </div>
+            `).join('');
+
+            // عرض القرار النهائي
+            const finalDiv = document.getElementById('finalDecisionArea');
+            const badgeClass = output.totalScore > 0.65 ? "bg-red-900/50 text-red-200" : (output.totalScore > 0.4 ? "bg-yellow-900/50 text-yellow-200" : "bg-green-900/50 text-green-200");
+            finalDiv.innerHTML = `
+                <div class="flex flex-col items-center p-4 rounded-2xl ${badgeClass}">
+                    <div class="text-3xl font-bold mb-2">${output.finalDecision}</div>
+                    <div class="text-sm">المخاطر المجمعة: ${(output.totalScore*100).toFixed(0)}% | أقوى وكيل: ${output.bestAgent}</div>
+                </div>
+            `;
+
+            // التفسير
+            document.getElementById('explanationArea').innerHTML = `
+                <div class="font-bold mb-2">📖 أساس القرار:</div>
+                <ul class="list-disc list-inside space-y-1">
+                    ${output.explanation.map(ex => `<li>${ex}</li>`).join('')}
+                </ul>
+                <div class="mt-2 text-xs opacity-70 italic">تم الدمج باستخدام معادلة SPIA المبسطة + ترجيح مرجح للوكلاء</div>
+            `;
+
+            // تحديث الذاكرة والرسم البياني
+            const decisionRecord = {
+                timestamp: new Date().toLocaleString(),
+                score: output.totalScore,
+                decision: output.finalDecision.substring(0, 50),
+                data: { ...inputData }
+            };
+            decisionHistory.unshift(decisionRecord);
+            if (decisionHistory.length > 5) decisionHistory.pop();
+            riskScores.push(output.totalScore);
+            if (riskScores.length > 7) riskScores.shift();
+            updateHistoryUI();
+            updateChart();
+        }
+
+        function updateHistoryUI() {
+            const historyDiv = document.getElementById('historyList');
+            if (decisionHistory.length === 0) {
+                historyDiv.innerHTML = '<div class="text-gray-500 text-sm">لا توجد قرارات سابقة.</div>';
+                return;
+            }
+            historyDiv.innerHTML = decisionHistory.map(rec => `
+                <div class="history-item p-2 bg-white/5 rounded-md text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-blue-300">${rec.timestamp}</span>
+                        <span class="text-xs px-2 py-0.5 bg-gray-700 rounded-full">خطر ${(rec.score*100).toFixed(0)}%</span>
+                    </div>
+                    <div class="mt-1">${rec.decision}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateChart() {
+            if (riskChart) riskChart.destroy();
+            const ctx = document.getElementById('riskChart').getContext('2d');
+            const labels = riskScores.map((_, idx) => `جولة ${idx+1}`);
+            riskChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'درجة المخاطر الكلية',
+                        data: riskScores,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59,130,246,0.2)',
+                        tension: 0.2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { labels: { color: '#cbd5e1' } } }
+                }
+            });
+        }
+
+        // ----- حدث المحاكاة -----
+        function runSimulation() {
+            const pressure = parseInt(document.getElementById('pressureSlider').value);
+            const temp = parseInt(document.getElementById('tempSlider').value);
+            const activity = parseInt(document.getElementById('activitySlider').value);
+            const stress = parseInt(document.getElementById('stressSlider').value);
+
+            document.getElementById('pressureVal').innerText = pressure;
+            document.getElementById('tempVal').innerText = temp;
+            document.getElementById('activityVal').innerText = activity;
+            document.getElementById('stressVal').innerText = stress;
+
+            const inputData = { pressure, temp, activity, stress };
+            const agents = [new HealthAgent(), new EnvironmentAgent(), new EconomyAgent(), new RiskAgent()];
+            const engine = new ICMCore(agents);
+            const output = engine.run(inputData);
+            updateUI(output, inputData);
+        }
+
+        // مسح الذاكرة
+        document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+            decisionHistory = [];
+            riskScores = [];
+            updateHistoryUI();
+            updateChart();
+            document.getElementById('finalDecisionArea').innerHTML = '<div class="text-center text-gray-400">لم يتم اتخاذ قرار بعد</div>';
+            document.getElementById('explanationArea').innerHTML = '';
+            document.getElementById('agentsReports').innerHTML = '<div class="text-gray-400 text-center col-span-2">اضغط "تشغيل المحاكاة" لبدء التحليل</div>';
+        });
+
+        document.getElementById('runSimulationBtn').addEventListener('click', runSimulation);
+
+        // تشغيل المحاكاة الأولية تلقائياً
+        runSimulation();
+    </script>
+</body>
+</html>
